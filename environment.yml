@@ -1,0 +1,24 @@
+name: ML4CE
+channels:
+  - conda-forge
+  - openGL
+  - defaults
+dependencies:
+  - jupyter
+  - numpy
+  - matplotlib
+  - scipy
+  - anaconda::scikit-learn
+  - holoviews
+  - hvplot
+  - pandas
+  - panel
+  - pathlib
+  - xarray
+  - netcdf4
+  - packaging
+  - h5netcdf
+  - bottleneck
+  - dask
+  - geopandas
+prefix: /Users/tristanwaddington/anaconda3/envs/ML_climate

@@ -1,3 +1,2 @@
-# Track all .h5 files with Git LFS
 *.h5 filter=lfs diff=lfs merge=lfs -text
-*.nc
+*.nc filter=lfs diff=lfs merge=lfs -text
