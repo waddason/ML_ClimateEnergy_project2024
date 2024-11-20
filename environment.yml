@@ -1,4 +1,4 @@
-name: ML4CE
+name: ML_climate
 channels:
   - conda-forge
   - openGL
@@ -20,5 +20,7 @@ dependencies:
   - h5netcdf
   - bottleneck
   - dask
-  - geopandas
+  - cartopy
+  - pytables
+  - seaborn
 prefix: /Users/tristanwaddington/anaconda3/envs/ML_climate
