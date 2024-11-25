@@ -10,6 +10,7 @@ Date: 2024
 
 # Import necessary libraries
 import pandas as pd
+from sklearn.preprocessing import RobustScaler
 
 
 # Define utility functions below
@@ -52,3 +53,94 @@ def load_normalize_data():
         variable_datasets_y_train,
         variable_datasets_y_test,
     )
+
+
+def split_train_test_val(df, end_train_date: str, end_test_date: str):
+    """Split the DataFrame into train, test and validation sets.
+    df: DataFrame to split.
+    end_train_date: (str) last date of the train set in format 'YYYY-MM-DD' excluded.
+    end_test_date: (str) last date of the test set in format 'YYYY-MM-DD' excluded.
+    returns: df_train, df_test, df_val.
+    """
+    end_test_date = pd.to_datetime(end_test_date)
+    end_train_date = pd.to_datetime(end_train_date)
+    assert (
+        end_train_date < end_test_date
+    ), "The test date should be after the train date"
+    assert (
+        end_test_date < df.index.max()
+    ), "The test date should be before the last date"
+    df_train = df.loc[df.index < end_train_date]
+    df_test = df.loc[(df.index >= end_train_date) & (df.index < end_test_date)]
+    df_val = df.loc[df.index >= end_test_date]
+    return df_train, df_test, df_val
+
+
+def load_red_data():
+    """Load the previous prepared reduced dataset and split it into train, test and validation sets.
+    returns: X_train, X_test, X_val, y_train, y_test, y_val"""
+    # Read the data
+    X_red = pd.read_csv("data/red_data/X_red.csv", index_col=0, parse_dates=True)
+    Y_red = pd.read_csv("data/red_data/Y_red.csv", index_col=0, parse_dates=True)
+    # Split the data into train, test and validation sets
+    end_train_date = "2016-01-01"
+    end_test_date = "2019-01-01"
+    X_train, X_test, X_val = split_train_test_val(X_red, end_train_date, end_test_date)
+    Y_train, Y_test, Y_val = split_train_test_val(Y_red, end_train_date, end_test_date)
+
+    return X_train, X_test, X_val, Y_train, Y_test, Y_val
+
+
+def load_red_norm_data():
+    """Load the previous prepared reduced dataset and split it into train, test and validation sets.
+    Then normalize the data.
+    returns: X_train, X_test, X_val, y_train, y_test, y_val, scalers"""
+    # Read the data
+    X_red = pd.read_csv("data/red_data/X_red.csv", index_col=0, parse_dates=True)
+    Y_red = pd.read_csv("data/red_data/Y_red.csv", index_col=0, parse_dates=True)
+    # Split the data into train, test and validation sets
+    end_train_date = "2016-01-01"
+    end_test_date = "2019-01-01"
+    X_train, X_test, X_val = split_train_test_val(X_red, end_train_date, end_test_date)
+    Y_train, Y_test, Y_val = split_train_test_val(Y_red, end_train_date, end_test_date)
+    # Normalize the data by identic features, use robust scalers to avoid outliers
+    scalers = {
+        "blh_scaler": RobustScaler(),
+        "d2m_scaler": RobustScaler(),
+        "skt_saler": RobustScaler(),
+        "sp_scaler": RobustScaler(),
+        "ssrd_scaler": RobustScaler(),
+        "t2m_scaler": RobustScaler(),
+        "tcc_scaler": RobustScaler(),
+        "tp_scaler": RobustScaler(),
+        "u10_scaler": RobustScaler(),
+        "v10_scaler": RobustScaler(),
+    }
+    # fit the scalers on the training data and transform all datasets
+    for scaler_name, scaler in scalers.items():
+        var_name = scaler_name.split("_")[0]
+        columns_to_scale = [col for col in X_train.columns if var_name in col]
+        # fit the scaler on the training data by merging the variables
+        all_vars = pd.concat(
+            [X_red[c] for c in X_red.columns if var_name in c]
+        ).values.reshape(-1, 1)
+        scaler.fit(all_vars)
+        # transform each column of the dataframe
+        for col_name in columns_to_scale:
+            X_train.loc[:, [col_name]] = scaler.transform(X_train.loc[:, [col_name]])
+            X_test.loc[:, [col_name]] = scaler.transform(X_test.loc[:, [col_name]])
+            X_val.loc[:, [col_name]] = scaler.transform(X_val.loc[:, [col_name]])
+        # Transform the columns from Paris
+        target_column = "paris" + "_" + var_name
+        Y_train.loc[:, [target_column]] = scaler.transform(
+            Y_train.loc[:, [target_column]]
+        )
+        Y_test.loc[:, [target_column]] = scaler.transform(
+            Y_test.loc[:, [target_column]]
+        )
+        Y_val.loc[:, [target_column]] = scaler.transform(Y_val.loc[:, [target_column]])
+
+    return X_train, X_test, X_val, Y_train, Y_test, Y_val, scalers
+
+
+# TODO : scaler on the viw of variables to have only  1 input.
