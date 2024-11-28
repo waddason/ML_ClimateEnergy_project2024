@@ -10,6 +10,7 @@ Date: 2024
 
 # Import necessary libraries
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import RobustScaler
 
 
@@ -103,6 +104,14 @@ def load_red_norm_data():
     end_test_date = "2019-01-01"
     X_train, X_test, X_val = split_train_test_val(X_red, end_train_date, end_test_date)
     Y_train, Y_test, Y_val = split_train_test_val(Y_red, end_train_date, end_test_date)
+    X_train_norm, X_test_norm, X_val_norm, Y_train_norm, Y_test_norm, Y_val_norm = (
+        X_train.copy(),
+        X_test.copy(),
+        X_val.copy(),
+        Y_train.copy(),
+        Y_test.copy(),
+        Y_val.copy(),
+    )
     # Normalize the data by identic features, use robust scalers to avoid outliers
     scalers = {
         "blh_scaler": RobustScaler(),
@@ -121,26 +130,43 @@ def load_red_norm_data():
         var_name = scaler_name.split("_")[0]
         columns_to_scale = [col for col in X_train.columns if var_name in col]
         # fit the scaler on the training data by merging the variables
-        all_vars = pd.concat(
-            [X_red[c] for c in X_red.columns if var_name in c]
-        ).values.reshape(-1, 1)
+        all_vars = np.stack(
+            [X_red[c] for c in X_red.columns if var_name in c], axis=0
+        ).reshape(-1, 1)
+        # print(f"fit {var_name} on {all_vars.shape=}")
         scaler.fit(all_vars)
         # transform each column of the dataframe
         for col_name in columns_to_scale:
-            X_train.loc[:, [col_name]] = scaler.transform(X_train.loc[:, [col_name]])
-            X_test.loc[:, [col_name]] = scaler.transform(X_test.loc[:, [col_name]])
-            X_val.loc[:, [col_name]] = scaler.transform(X_val.loc[:, [col_name]])
+            X_train_norm.loc[:, [col_name]] = scaler.transform(
+                X_train.loc[:, [col_name]].values
+            )
+            X_test_norm.loc[:, [col_name]] = scaler.transform(
+                X_test.loc[:, [col_name]].values
+            )
+            X_val_norm.loc[:, [col_name]] = scaler.transform(
+                X_val.loc[:, [col_name]].values
+            )
         # Transform the columns from Paris
         target_column = "paris" + "_" + var_name
-        Y_train.loc[:, [target_column]] = scaler.transform(
-            Y_train.loc[:, [target_column]]
+        Y_train_norm.loc[:, [target_column]] = scaler.transform(
+            Y_train.loc[:, [target_column]].values
         )
-        Y_test.loc[:, [target_column]] = scaler.transform(
-            Y_test.loc[:, [target_column]]
+        Y_test_norm.loc[:, [target_column]] = scaler.transform(
+            Y_test.loc[:, [target_column]].values
         )
-        Y_val.loc[:, [target_column]] = scaler.transform(Y_val.loc[:, [target_column]])
+        Y_val_norm.loc[:, [target_column]] = scaler.transform(
+            Y_val.loc[:, [target_column]].values
+        )
 
-    return X_train, X_test, X_val, Y_train, Y_test, Y_val, scalers
+    return (
+        X_train_norm,
+        X_test_norm,
+        X_val_norm,
+        Y_train_norm,
+        Y_test_norm,
+        Y_val_norm,
+        scalers,
+    )
 
 
 # TODO : scaler on the viw of variables to have only  1 input.
