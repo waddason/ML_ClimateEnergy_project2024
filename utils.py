@@ -4,17 +4,45 @@ utils.py
 This module contains utility functions for the ML_ClimateEnergy_project2024.
 
 Author: Tristan Waddington
-Date: 2024
+Date: nov 2024
 
 """
 
-# Import necessary libraries
+###############################################################################
+# Imports
+###############################################################################
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import RobustScaler
 
 
-# Define utility functions below
+###############################################################################
+# Specific Train/Test/Val split
+###############################################################################
+def split_train_test_val(df, end_train_date: str, end_test_date: str):
+    """Split the DataFrame into train, test and validation sets.
+    df: DataFrame to split.
+    end_train_date: (str) last date of the train set in format 'YYYY-MM-DD' excluded.
+    end_test_date: (str) last date of the test set in format 'YYYY-MM-DD' excluded.
+    returns: df_train, df_test, df_val.
+    """
+    end_test_date = pd.to_datetime(end_test_date)
+    end_train_date = pd.to_datetime(end_train_date)
+    assert (
+        end_train_date < end_test_date
+    ), "The test date should be after the train date"
+    assert (
+        end_test_date < df.index.max()
+    ), "The test date should be before the last date"
+    df_train = df.loc[df.index < end_train_date]
+    df_test = df.loc[(df.index >= end_train_date) & (df.index < end_test_date)]
+    df_val = df.loc[df.index >= end_test_date]
+    return df_train, df_test, df_val
+
+
+###############################################################################
+# Loading and preparing data
+###############################################################################
 
 
 def load_normalize_data():
@@ -54,27 +82,6 @@ def load_normalize_data():
         variable_datasets_y_train,
         variable_datasets_y_test,
     )
-
-
-def split_train_test_val(df, end_train_date: str, end_test_date: str):
-    """Split the DataFrame into train, test and validation sets.
-    df: DataFrame to split.
-    end_train_date: (str) last date of the train set in format 'YYYY-MM-DD' excluded.
-    end_test_date: (str) last date of the test set in format 'YYYY-MM-DD' excluded.
-    returns: df_train, df_test, df_val.
-    """
-    end_test_date = pd.to_datetime(end_test_date)
-    end_train_date = pd.to_datetime(end_train_date)
-    assert (
-        end_train_date < end_test_date
-    ), "The test date should be after the train date"
-    assert (
-        end_test_date < df.index.max()
-    ), "The test date should be before the last date"
-    df_train = df.loc[df.index < end_train_date]
-    df_test = df.loc[(df.index >= end_train_date) & (df.index < end_test_date)]
-    df_val = df.loc[df.index >= end_test_date]
-    return df_train, df_test, df_val
 
 
 def load_red_data():
@@ -169,4 +176,56 @@ def load_red_norm_data():
     )
 
 
-# TODO : scaler on the viw of variables to have only  1 input.
+# Deprecated
+def load_normalize_data():
+    """Load the previous prepared normalized dataset
+    returns: X_train, X_test, y_train, Y_test"""
+    # Load variable_datasets_X_train from HDF5
+    variable_datasets_X_train = {}
+    with pd.HDFStore("data/norm_data/variable_datasets_X_train.h5") as store:
+        for variable in store.keys():
+            variable_name = variable.strip("/")
+            variable_datasets_X_train[variable_name] = store[variable]
+
+    # Load variable_datasets_X_test from HDF5
+    variable_datasets_X_test = {}
+    with pd.HDFStore("data/norm_data/variable_datasets_X_test.h5") as store:
+        for variable in store.keys():
+            variable_name = variable.strip("/")
+            variable_datasets_X_test[variable_name] = store[variable]
+
+    # Load variable_datasets_y_train from HDF5
+    variable_datasets_y_train = {}
+    with pd.HDFStore("data/norm_data/variable_datasets_y_train.h5") as store:
+        for variable in store.keys():
+            variable_name = variable.strip("/")
+            variable_datasets_y_train[variable_name] = store[variable]
+
+    # Load variable_datasets_y_test from HDF5
+    variable_datasets_y_test = {}
+    with pd.HDFStore("data/norm_data/variable_datasets_y_test.h5") as store:
+        for variable in store.keys():
+            variable_name = variable.strip("/")
+            variable_datasets_y_test[variable_name] = store[variable]
+
+    return (
+        variable_datasets_X_train,
+        variable_datasets_X_test,
+        variable_datasets_y_train,
+        variable_datasets_y_test,
+    )
+
+
+def load_red_data():
+    """Load the previous prepared reduced dataset and split it into train, test and validation sets.
+    returns: X_train, X_test, X_val, y_train, y_test, y_val"""
+    # Read the data
+    X_red = pd.read_csv("data/red_data/X_red.csv", index_col=0, parse_dates=True)
+    Y_red = pd.read_csv("data/red_data/Y_red.csv", index_col=0, parse_dates=True)
+    # Split the data into train, test and validation sets
+    end_train_date = "2016-01-01"
+    end_test_date = "2019-01-01"
+    X_train, X_test, X_val = split_train_test_val(X_red, end_train_date, end_test_date)
+    Y_train, Y_test, Y_val = split_train_test_val(Y_red, end_train_date, end_test_date)
+
+    return X_train, X_test, X_val, Y_train, Y_test, Y_val

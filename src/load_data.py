@@ -259,35 +259,7 @@ def load_red_norm_data(
             index=Y_val_norm.index,
             dtype="float64",
         )
-        """
-        for col_name in columns_to_scale:
 
-
-
-            X_train_norm.loc[:, col_name] = scaler.transform(
-                X_train_norm[[col_name]].values
-            ).astype("float64")
-            # X_train_norm.loc[:, [col_name]] = scaler.transform(
-            #     X_train_norm.loc[:, [col_name]].values
-            # )
-            X_test_norm.loc[:, col_name] = scaler.transform(
-                X_test_norm[[col_name]].values
-            ).astype("float64")
-            X_val_norm.loc[:, col_name] = scaler.transform(
-                X_val_norm[[col_name]].values
-            ).astype("float64")
-        # Transform the columns from Paris
-        target_column = "paris" + "_" + var_name
-        Y_train_norm.loc[:, target_column] = scaler.transform(
-            Y_train_norm[[target_column]].values
-        ).astype("float64")
-        Y_test_norm.loc[:, target_column] = scaler.transform(
-            Y_test_norm[[target_column]].values
-        ).astype("float64")
-        Y_val_norm.loc[:, target_column] = scaler.transform(
-            Y_val_norm[[target_column]].values
-        ).astype("float64")
-        """
     return (
         X_train_norm,
         X_test_norm,
