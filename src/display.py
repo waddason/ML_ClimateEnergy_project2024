@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from sklearn.metrics import mean_squared_error
 
 ###############################################################################
 # Constants
@@ -195,3 +196,25 @@ def display_cycles(df, start_year: int, end_year: int):
                 axs[ax_i, 1].set_facecolor("lightgrey")
 
     plt.show()
+
+
+###############################################################################
+# Display MSE
+###############################################################################
+def display_mse_by_year(y_pred: pd.DataFrame, y_true: pd.DataFrame) -> pd.DataFrame:
+    """Display the Mean Squared Error by year"""
+    # compute the mse by variable and by year, then the mean
+    mse_per_var = {}
+    for i_var, variable in enumerate(y_true.columns):
+        mse_per_var[variable] = []
+        for year in [2016, 2017, 2018]:
+            mse = mean_squared_error(
+                y_true[variable].iloc[y_true.index.year == year],
+                y_pred[y_true.index.year == year, i_var],
+            )
+            mse_per_var[variable].append(mse)
+        # compute the mean for the whole dataset``
+        mse_per_var[variable].append(np.mean(mse_per_var[variable]))
+    # load into a dataframe and display with a color gradient
+    mse_by_year_df = pd.DataFrame(mse_per_var, index=[2016, 2017, 2018, "all"])
+    return mse_by_year_df.style.background_gradient(cmap="RdYlGn_r")
