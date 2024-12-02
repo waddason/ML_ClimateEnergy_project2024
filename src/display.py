@@ -235,3 +235,28 @@ def display_delta(
     v_abs = max(abs(v_min), abs(v_max))
     style_df = delta.style.background_gradient(cmap="RdYlGn", vmin=-v_abs, vmax=v_abs)
     return delta, style_df
+
+
+###############################################################################
+# Display losses during DL training
+###############################################################################
+def display_losses(
+    train_losses: list[float], test_losses: list[float], model_name: str = None
+) -> plt:
+    """Display the training and test losses during the training of a model"""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(train_losses, label="Training loss")
+    ax.plot(test_losses, label="Test loss")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
+    ax.set_title(
+        f"Training and test losses of {model_name}"
+        if model_name
+        else "Training and test losses"
+    )
+    # display the min test loss
+    i_min_loss = test_losses.index(min(test_losses))
+    ax.plot(i_min_loss, test_losses[i_min_loss], "ro", label="Min test loss")
+
+    ax.legend()
+    plt.show()
