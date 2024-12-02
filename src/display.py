@@ -201,8 +201,11 @@ def display_cycles(df, start_year: int, end_year: int):
 ###############################################################################
 # Display MSE
 ###############################################################################
-def display_mse_by_year(y_pred: pd.DataFrame, y_true: pd.DataFrame) -> pd.DataFrame:
-    """Display the Mean Squared Error by year"""
+def display_mse_by_year(
+    y_pred: pd.DataFrame, y_true: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.io.formats.style.Styler]:
+    """Display the Mean Squared Error by year
+    Return the dataframe and the colored dataframe for standardized display"""
     # compute the mse by variable and by year, then the mean
     mse_per_var = {}
     for i_var, variable in enumerate(y_true.columns):
@@ -210,11 +213,25 @@ def display_mse_by_year(y_pred: pd.DataFrame, y_true: pd.DataFrame) -> pd.DataFr
         for year in [2016, 2017, 2018]:
             mse = mean_squared_error(
                 y_true[variable].iloc[y_true.index.year == year],
-                y_pred[y_true.index.year == year, i_var],
+                y_pred.iloc[y_true.index.year == year, i_var],
             )
             mse_per_var[variable].append(mse)
-        # compute the mean for the whole dataset``
+        # compute the mean for the whole dataset
         mse_per_var[variable].append(np.mean(mse_per_var[variable]))
     # load into a dataframe and display with a color gradient
     mse_by_year_df = pd.DataFrame(mse_per_var, index=[2016, 2017, 2018, "all"])
-    return mse_by_year_df.style.background_gradient(cmap="RdYlGn_r")
+    style_df = mse_by_year_df.style.background_gradient(cmap="RdYlGn_r")
+    return mse_by_year_df, style_df
+
+
+def display_delta(
+    mse_ref: pd.DataFrame, mse_new: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.io.formats.style.Styler]:
+    """Display the delta between two dataframes
+    Return the dataframe and the colored dataframe for standardized display"""
+    delta = mse_ref - mse_new
+    v_min = delta.values.min()
+    v_max = delta.values.max()
+    v_abs = max(abs(v_min), abs(v_max))
+    style_df = delta.style.background_gradient(cmap="RdYlGn", vmin=-v_abs, vmax=v_abs)
+    return delta, style_df
