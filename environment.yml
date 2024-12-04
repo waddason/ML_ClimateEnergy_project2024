@@ -23,4 +23,7 @@ dependencies:
   - cartopy
   - pytables
   - seaborn
+  - pytorch
+  - xgboost
+  - pmdarima
 prefix: /Users/tristanwaddington/anaconda3/envs/ML_climate
