@@ -20,6 +20,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from sklearn.metrics import mean_squared_error
+import src.load_data as ld
+from importlib import reload
+
+reload(ld)
 
 ###############################################################################
 # Constants
@@ -203,7 +207,7 @@ def display_cycles(df, start_year: int, end_year: int):
 ###############################################################################
 def display_mse_by_year(
     y_pred: pd.DataFrame, y_true: pd.DataFrame
-) -> tuple[pd.DataFrame, pd.io.formats.style.Styler]:
+) -> tuple[pd.DataFrame, pd.DataFrame.style]:
     """Display the Mean Squared Error by year
     Return the dataframe and the colored dataframe for standardized display"""
     # compute the mse by variable and by year, then the mean
@@ -226,7 +230,7 @@ def display_mse_by_year(
 
 def display_delta(
     mse_ref: pd.DataFrame, mse_new: pd.DataFrame
-) -> tuple[pd.DataFrame, pd.io.formats.style.Styler]:
+) -> tuple[pd.DataFrame, pd.DataFrame.style]:
     """Display the delta between two dataframes
     Return the dataframe and the colored dataframe for standardized display"""
     delta = mse_ref - mse_new
@@ -260,3 +264,323 @@ def display_losses(
 
     ax.legend()
     plt.show()
+
+
+##########################
+# Display the predictions
+###########################"
+def display_predictions_with_actual(
+    y_pred: pd.DataFrame,
+    y_true: pd.DataFrame,
+    scalers: dict[str:any],
+    from_date=None,
+    to_date=None,
+    var_list: list[str] = None,
+) -> None:
+    """Display the predictions and the actual values for the given time frame grouped by corresponding vars.
+    Values are scaled back to the actual units.
+    Return plots depending on given vars:
+    - Temperature: Air temperature, Dew point, Skin temperature [K]
+    - Precipitation: Rainfall [m] and surface pressure [Pa]
+    - Could and Wind: Cloud cover [%], Wind speed [m/s]
+    - Boundary layer height and solar radiation [m] and [J/m^2]
+
+    y_pred: DataFrame containing the predictions
+    y_true: DataFrame containing the actual values
+    scalers: dict of scalers used to scale back the data
+    from_date: str, starting date of the time frame in format 'YYYY-MM-DD'
+    to_date: str, ending date of the time frame in format 'YYYY-MM-DD'
+    var_list: list of columns of y_true to display, if None, display all available variables
+    """
+    # Variable selection and validation
+    if var_list is None:
+        # Display all vars if none is given
+        var_list = y_true.columns
+    else:
+        assert all(
+            var in y_true.columns for var in var_list
+        ), "Some variables are not in the DataFrame y_true"
+        assert all(
+            var in y_pred.columns for var in var_list
+        ), "Some variables are not in the DataFrame y_pred"
+
+    predic_values = pd.DataFrame()
+    real_values = pd.DataFrame()
+
+    # date range selection and validation
+    if from_date is None:
+        from_date_dt = y_true.index.min()
+    else:
+        from_date_dt = pd.to_datetime(from_date)
+    if to_date is None:
+        to_date_dt = y_true.index.max()
+    else:
+        to_date_dt = pd.to_datetime(to_date)
+    assert from_date_dt <= to_date_dt, "from_date must be before to_date"
+    assert (
+        y_true.index.min() <= from_date_dt <= y_true.index.max()
+    ), "from_date not in y_true index"
+    assert (
+        y_true.index.min() <= to_date_dt <= y_true.index.max()
+    ), "to_date not in y_true index"
+    assert (
+        y_pred.index.min() <= from_date_dt <= y_pred.index.max()
+    ), "from_date not in y_pred index"
+    assert (
+        y_pred.index.min() <= to_date_dt <= y_pred.index.max()
+    ), "to_date not in y_pred index"
+
+    # Scale back the variables on the requested time frame and variables
+    real_values = ld.scale_back_df(
+        y_true.loc[from_date_dt:to_date_dt, var_list], scalers
+    )
+    predic_values = ld.scale_back_df(
+        y_pred.loc[from_date_dt:to_date_dt, var_list], scalers
+    )
+
+    # Acutal plot
+    var_to_plot = real_values.columns
+    var_ax_repartition = {
+        "t2m": 0,
+        "d2m": 0,
+        "u10": 2,
+        "v10": 2,
+        "skt": 0,
+        "tcc": 2,
+        "sp": 1,
+        "tp": 1,
+        "ssrd": 3,
+        "blh": 3,
+    }
+    ax_to_plot = set(var_ax_repartition[var] for var in var_to_plot)
+    nb_axs = len(ax_to_plot)
+    fig, axs = plt.subplots(nb_axs, 1, figsize=(15, 5 * nb_axs), layout="constrained")
+    # Put a single ax in a list
+    if nb_axs == 1:
+        axs = [axs]
+    fig.suptitle(f"Predictions for weather data in Paris")
+    real_style = {
+        "linestyle": "solid",
+        "linewidth": 1.5,
+    }
+    predic_style = {
+        "linestyle": "dotted",
+        "linewidth": 1.5,
+    }
+    # specific color per var
+    var_color = {
+        "t2m": "tab:blue",
+        "d2m": "tab:orange",
+        "u10": "tab:green",
+        "v10": "tab:red",
+        "skt": "tab:green",
+        "tcc": "tab:gray",
+        "sp": "tab:green",
+        "tp": "b",
+        "ssrd": "tab:olive",
+        "blh": "tab:cyan",
+    }
+
+    # TODO: check the presence of var in the df
+    curr_ax = 0
+    # Plot the temperatures
+    if 0 in ax_to_plot:
+        if "t2m" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["t2m"],
+                label=var_legend["t2m"],
+                color=var_color["t2m"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["t2m"],
+                label=var_legend["t2m"] + " (pred)",
+                color=var_color["t2m"],
+                **predic_style,
+            )
+        if "skt" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["skt"],
+                label=var_legend["skt"],
+                color=var_color["skt"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["skt"],
+                label=var_legend["skt"] + " (pred)",
+                color=var_color["skt"],
+                **predic_style,
+            )
+
+        if "d2m" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["d2m"],
+                label=var_legend["d2m"],
+                color=var_color["d2m"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["d2m"],
+                label=var_legend["d2m"] + " (pred)",
+                color=var_color["d2m"],
+                **predic_style,
+            )
+
+        axs[curr_ax].set_title("Temperature evolution")
+        axs[curr_ax].set_ylabel("Temperature [K]")
+        axs[curr_ax].legend()
+
+        # offset the axes
+        curr_ax += 1
+
+    # Plot the precipitation, cloud cover and pressure
+    if 1 in ax_to_plot:
+        if "tp" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["tp"],
+                label=var_legend["tp"],
+                color=var_color["tp"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["tp"],
+                label=var_legend["tp"] + " (pred)",
+                color=var_color["tp"],
+                **predic_style,
+            )
+            axs[curr_ax].legend(loc="upper left")
+        if "sp" in var_to_plot:
+            ax_twin1 = axs[curr_ax].twinx()
+            ax_twin1.plot(
+                real_values.index,
+                real_values["sp"],
+                label=var_legend["sp"],
+                color=var_color["sp"],
+                **real_style,
+            )
+            ax_twin1.plot(
+                real_values.index,
+                predic_values["sp"],
+                label=var_legend["sp"] + " (pred)",
+                color=var_color["sp"],
+                **predic_style,
+            )
+            ax_twin1.set_ylabel("Surface pressure", c=var_color["sp"])
+            ax_twin1.legend(loc="upper right")
+
+        axs[curr_ax].set_ylabel("Total precipitation", c=var_color["tp"])
+        axs[curr_ax].set_title("Precipitation and surface pressure evolution")
+
+        # offset the axes
+        curr_ax += 1
+
+    # Plot the wind components and cloud cover
+    if 2 in ax_to_plot:
+        if "u10" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["u10"],
+                label=var_legend["u10"],
+                color=var_color["u10"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["u10"],
+                label=var_legend["u10"] + " (pred)",
+                color=var_color["u10"],
+                **predic_style,
+            )
+        if "v10" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["v10"],
+                label=var_legend["v10"],
+                color=var_color["v10"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["v10"],
+                label=var_legend["v10"] + " (pred)",
+                color=var_color["v10"],
+                **predic_style,
+            )
+            axs[curr_ax].legend(loc="upper left")
+
+        axs[curr_ax].set_title("Wind components and cloud cover evolution ")
+        axs[curr_ax].set_ylabel("Wind component [m/s]")
+
+        # Skrink down the cloud cover to display
+        if "tcc" in var_to_plot:
+            ax_twin2 = axs[curr_ax].twinx()
+            ax_twin2.set_ylim(0, 3)
+            ax_twin2.plot(
+                real_values.index,
+                real_values["tcc"],
+                label=var_legend["tcc"],
+                color=var_color["tcc"],
+                **real_style,
+            )
+            ax_twin2.plot(
+                real_values.index,
+                predic_values["tcc"],
+                label=var_legend["tcc"] + " (pred)",
+                color=var_color["tcc"],
+                **predic_style,
+            )
+            ax_twin2.legend(loc="upper right")
+            ax_twin2.set_ylabel("Total cloud cover (shrinked)", c=var_color["tcc"])
+        # offset the axes
+        curr_ax += 1
+
+    # blh & ssrd
+    if 3 in ax_to_plot:
+        if "blh" in var_to_plot:
+            axs[curr_ax].plot(
+                real_values.index,
+                real_values["blh"],
+                label=var_legend["blh"],
+                color=var_color["blh"],
+                **real_style,
+            )
+            axs[curr_ax].plot(
+                real_values.index,
+                predic_values["blh"],
+                label=var_legend["blh"] + " (pred)",
+                color=var_color["blh"],
+                **predic_style,
+            )
+            axs[curr_ax].legend(loc="upper left")
+        if "ssrd" in var_to_plot:
+            ax_twin3 = axs[curr_ax].twinx()
+            ax_twin3.plot(
+                real_values.index,
+                real_values["ssrd"],
+                label=var_legend["ssrd"],
+                color=var_color["ssrd"],
+                **real_style,
+            )
+            ax_twin3.plot(
+                real_values.index,
+                predic_values["ssrd"],
+                label=var_legend["ssrd"] + " (pred)",
+                color=var_color["ssrd"],
+                **predic_style,
+            )
+            ax_twin3.legend(loc="upper right")
+            ax_twin3.set_ylabel("Surface solar radiation [J/m^2]", c=var_color["ssrd"])
+
+        axs[curr_ax].set_title("Boundary layer height and solar radiation")
+        axs[curr_ax].set_ylabel("Boundary layer height [m]", c=var_color["blh"])
+
+    plt.show()
+    return

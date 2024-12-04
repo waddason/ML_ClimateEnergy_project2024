@@ -294,3 +294,28 @@ def add_shift_previous_days(dataset, days=1):
     new_dataset.ffill(inplace=True)
 
     return new_dataset
+
+
+# -----------------------------------------------------------------------------
+# 6. Scale back the data
+# -----------------------------------------------------------------------------
+
+
+def scale_back_df(df: pd.DataFrame, scalers: dict[str, RobustScaler]) -> pd.DataFrame:
+    """
+    Scale back the data
+    """
+    df_scaled_back = pd.DataFrame()
+    for scaler_name, scaler in scalers.items():
+        var_name = scaler_name.split("_")[0]
+        columns_to_scale = [col for col in df.columns if var_name in col]
+        # transform each column of the dataframe
+        for col_name in columns_to_scale:
+            if col_name not in df.columns:
+                continue
+            df_scaled_back.loc[:, var_name] = pd.Series(
+                scaler.inverse_transform(df[[col_name]].values).flatten(),
+                index=df.index,
+                dtype="float64",
+            )
+    return df_scaled_back
