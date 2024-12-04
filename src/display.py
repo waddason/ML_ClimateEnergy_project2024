@@ -314,6 +314,7 @@ def display_predictions_with_actual(
     from_date=None,
     to_date=None,
     var_list: list[str] = None,
+    outliers_idx=None,
 ) -> None:
     """Display the predictions and the actual values for the given time frame grouped by corresponding vars.
     Values are scaled back to the actual units.
@@ -329,6 +330,7 @@ def display_predictions_with_actual(
     from_date: str, starting date of the time frame in format 'YYYY-MM-DD'
     to_date: str, ending date of the time frame in format 'YYYY-MM-DD'
     var_list: list of columns of y_true to display, if None, display all available variables
+    outliers_idx: list of indexes of outliers to display
     """
     # Variable selection and validation
     if var_list is None:
@@ -392,11 +394,17 @@ def display_predictions_with_actual(
     }
     ax_to_plot = set(var_ax_repartition[var] for var in var_to_plot)
     nb_axs = len(ax_to_plot)
-    fig, axs = plt.subplots(nb_axs, 1, figsize=(15, 5 * nb_axs), layout="constrained")
+    fig, axs = plt.subplots(
+        nb_axs, 1, figsize=(15, 5 * nb_axs), layout="constrained", sharex=True
+    )
     # Put a single ax in a list
     if nb_axs == 1:
         axs = [axs]
-    fig.suptitle(f"Predictions for weather data in Paris")
+    fig.suptitle(
+        "Predictions for weather data in Paris"
+        if outliers_idx is None
+        else f"Predictions for weather data in Paris, {len(outliers_idx)} outliers in gray."
+    )
     real_style = {
         "linestyle": "solid",
         "linewidth": 1.5,
@@ -474,6 +482,17 @@ def display_predictions_with_actual(
         axs[curr_ax].set_ylabel("Temperature [K]")
         axs[curr_ax].legend()
 
+        # Display the outlayers
+        if outliers_idx is not None:
+            # gray vertical line at the date of the outliers
+            for idx in outliers_idx:
+                axs[curr_ax].axvline(
+                    x=idx,
+                    color="grey",
+                    linestyle="--",
+                    label="_outliers",
+                )
+
         # offset the axes
         curr_ax += 1
 
@@ -511,12 +530,22 @@ def display_predictions_with_actual(
                 color=var_color["sp"],
                 **predic_style,
             )
-            ax_twin1.set_ylabel("Surface pressure", c=var_color["sp"])
+            ax_twin1.set_ylabel("Surface pressure [Pa]", c=var_color["sp"])
             ax_twin1.legend(loc="upper right")
 
-        axs[curr_ax].set_ylabel("Total precipitation", c=var_color["tp"])
+        axs[curr_ax].set_ylabel("Total precipitation [m]", c=var_color["tp"])
         axs[curr_ax].set_title("Precipitation and surface pressure evolution")
 
+        # Display the outlayers
+        if outliers_idx is not None:
+            # gray vertical line at the date of the outliers
+            for idx in outliers_idx:
+                axs[curr_ax].axvline(
+                    x=idx,
+                    color="grey",
+                    linestyle="--",
+                    label="_outliers",
+                )
         # offset the axes
         curr_ax += 1
 
@@ -576,7 +605,20 @@ def display_predictions_with_actual(
                 **predic_style,
             )
             ax_twin2.legend(loc="upper right")
-            ax_twin2.set_ylabel("Total cloud cover (shrinked)", c=var_color["tcc"])
+            ax_twin2.set_ylabel(
+                "Total cloud cover [0-1] (shrinked)", c=var_color["tcc"]
+            )
+
+        # Display the outlayers
+        if outliers_idx is not None:
+            # gray vertical line at the date of the outliers
+            for idx in outliers_idx:
+                axs[curr_ax].axvline(
+                    x=idx,
+                    color="grey",
+                    linestyle="--",
+                    label="_outliers",
+                )
         # offset the axes
         curr_ax += 1
 
@@ -616,6 +658,17 @@ def display_predictions_with_actual(
             )
             ax_twin3.legend(loc="upper right")
             ax_twin3.set_ylabel("Surface solar radiation [J/m^2]", c=var_color["ssrd"])
+
+        # Display the outlayers
+        if outliers_idx is not None:
+            # gray vertical line at the date of the outliers
+            for idx in outliers_idx:
+                axs[curr_ax].axvline(
+                    x=idx,
+                    color="grey",
+                    linestyle="--",
+                    label="_outliers",
+                )
 
         axs[curr_ax].set_title("Boundary layer height and solar radiation")
         axs[curr_ax].set_ylabel("Boundary layer height [m]", c=var_color["blh"])
