@@ -377,6 +377,10 @@ def display_predictions_with_actual(
     predic_values = ld.scale_back_df(
         y_pred.loc[from_date_dt:to_date_dt, var_list], scalers
     )
+    if outliers_idx is not None:
+        outliers_idx = outliers_idx[
+            outliers_idx.to_series().between(from_date, to_date)
+        ]
 
     # Acutal plot
     var_to_plot = real_values.columns
@@ -1050,3 +1054,36 @@ def compare_multiple_predictions_with_actual(
 
     plt.show()
     return
+
+
+###############################################################################
+# Display the anomalies
+###############################################################################
+def display_anomalies(
+    X_ano: pd.DataFrame,
+    X_ano_distance: np.ndarray,
+    anomaly_threshold: float,
+) -> None:
+    """Display the anomalies detected on the training set with Kmeans
+    X_ano_train: DataFrame containing the training set used to display the index
+    X_ano_train_distance: np.ndarray, distance to the closest cluster center
+    anomaly_threshold: float, threshold to detect anomalies"""
+    # Display the anomalies on a time line
+    fig, ax = plt.subplots(figsize=(15, 4), layout="constrained")
+    ax.plot(X_ano.index, X_ano_distance, label="Distance to closest cluster center")
+    outliers_idx = np.nonzero(X_ano_distance >= anomaly_threshold)[0]
+
+    print(
+        f"{len(outliers_idx)} anomalies detected on the training set at {', '.join(date.strftime('%Y-%m-%d') for date in X_ano.index[outliers_idx])}."
+    )
+    ax.plot(
+        X_ano.index[outliers_idx],
+        X_ano_distance[outliers_idx],
+        "ro",
+        label="Anomalies",
+    )
+    ax.axhline(anomaly_threshold, color="r", linestyle="--", label="Anomaly threshold")
+    ax.set_title("Outliers detection on the training set with Kmeans")
+    ax.legend()
+    ax.set_ylabel("Distance to closest cluster center")
+    plt.show()
