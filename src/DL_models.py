@@ -207,3 +207,64 @@ class Conv1DModel(nn.Module):
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+
+
+# ------------------------------------------------------------------------------
+# 3. a Transformer model
+# ------------------------------------------------------------------------------
+class TransformerModel(nn.Module):
+    def __init__(self, input_size=160, embed_dim=128, num_heads=8, num_encoder_layers=4, hidden_dim=256, output_size=10, dropout_rate=0.3):
+        super(TransformerModel, self).__init__()
+
+        # Input Embedding Layer
+        self.embedding = nn.Linear(input_size, embed_dim)  # Map input to embedding dimension
+        self.dropout = nn.Dropout(dropout_rate)
+
+        # Transformer Encoder
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=hidden_dim, dropout=dropout_rate, batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoder_layers)
+
+        # Fully Connected Layers
+        self.fc = nn.Sequential(
+            nn.Linear(embed_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_dim, output_size)
+        )
+
+        # Positional Encoding
+        self.embed_dim = embed_dim
+        self.register_buffer("positional_encoding", self.create_positional_encoding(input_size, embed_dim))
+
+    def create_positional_encoding(self, max_seq_len, embed_dim):
+        """Generates positional encoding for max_seq_len and embed_dim."""
+        pe = torch.zeros(max_seq_len, embed_dim)
+        position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-torch.log(torch.tensor(10000.0)) / embed_dim))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        return pe.unsqueeze(0)  # Add batch dimension
+
+    def forward(self, x):
+        # Check if the input needs to be adjusted
+        if len(x.shape) == 2:  # If input is [batch_size, seq_len]
+            batch_size, seq_len = x.size()
+            x = x.unsqueeze(-1)  # Add a feature dimension -> [batch_size, seq_len, 1]
+            x = x.expand(-1, -1, self.embedding.in_features)  # Expand to [batch_size, seq_len, input_size]
+
+        # Input Embedding (use a linear layer for continuous data)
+        x = self.embedding(x)  # Shape: [batch_size, seq_len, embed_dim]
+        x = self.dropout(x)
+
+        # Match Positional Encoding to Input
+        pos_enc = self.positional_encoding[:, :x.size(1), :].to(x.device)  # Crop positional encoding to match seq_len
+        x += pos_enc  # Element-wise addition
+
+        # Transformer Encoder
+        x = self.transformer_encoder(x)  # Shape: [batch_size, seq_len, embed_dim]
+        x = x.mean(dim=1)  # Pooling across sequence length
+
+        # Fully Connected Layers
+        output = self.fc(x)  # Shape: [batch_size, output_size]
+        return output
+
