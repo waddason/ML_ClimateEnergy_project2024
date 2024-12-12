@@ -1,4 +1,4 @@
-name: ML_climate
+name: ML_Climate
 channels:
   - conda-forge
   - openGL
@@ -26,4 +26,6 @@ dependencies:
   - pytorch
   - xgboost
   - pmdarima
-prefix: /Users/tristanwaddington/anaconda3/envs/ML_climate
+  - mamba
+  - autogluon
+prefix: /Users/tristanwaddington/anaconda3/envs/ML_Climate
